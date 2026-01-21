@@ -18,7 +18,8 @@ mean_value = sum(numbers_list) / total_values
 
 # 6. Print a clean summary
 print("\n===== Data Summary =====")
-print("Total values   :", total_values)
-print("Minimum value  :", minimum_value)
-print("Maximum value  :", maximum_value)
-print("Mean value     :", f"{mean_value:.2f}")
+print("Total number of values   :", total_values)
+print("Minimum value            :", minimum_value)
+print("Maximum value            :", maximum_value)
+print("Mean value               :", f"{mean_value:.2f}")
+
