@@ -413,5 +413,7 @@ These are the **foundation skills** for Python, data science, and AI.
 
 📌 *Day 2 goal: Understand how Python data structures connect to real AI workflows.*
 
+# 📘 Day 3: Python Basics for AI
+# 📘 Day 4: Basic Data piplines
 
 
