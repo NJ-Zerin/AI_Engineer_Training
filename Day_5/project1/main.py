@@ -7,6 +7,7 @@ import datetime
 import sys
 import random
 import threading
+import subprocess
 
 r = sr.Recognizer()
 engine = pyttsx3.init()
@@ -14,6 +15,10 @@ engine = pyttsx3.init()
 # Configure speech engine for better performance
 engine.setProperty('rate', 150)    # Speed of speech
 engine.setProperty('volume', 1.0)  # Volume (0.0 to 1.0)
+
+# Track opened applications and websites
+opened_apps = []
+last_opened_url = None
 
 def speak(text):
     global engine
@@ -38,7 +43,102 @@ def reminder_alert(message, minutes):
     speak("Reminder: " + message)
     print("[REMINDER ALERT]: " + message)
 
+def close_application(app_name):
+    """Close a macOS application"""
+    try:
+        os.system(f"osascript -e 'quit app \"{app_name}\"'")
+        print(f"[CLOSED]: {app_name}")
+        return True
+    except Exception as e:
+        print(f"[ERROR]: Could not close {app_name} - {str(e)}")
+        return False
+
+def close_last_browser_tab():
+    """Close the last opened browser tab"""
+    try:
+        # Try to close active tab in Safari
+        result = os.system("osascript -e 'tell application \"Safari\" to close current tab of front window' 2>/dev/null")
+        if result == 0:
+            print("[CLOSED]: Safari tab")
+            return True
+    except:
+        pass
+    
+    try:
+        # Try to close active tab in Chrome
+        result = os.system("osascript -e 'tell application \"Google Chrome\" to close active tab of front window' 2>/dev/null")
+        if result == 0:
+            print("[CLOSED]: Chrome tab")
+            return True
+    except:
+        pass
+    
+    # If both fail, try a more aggressive approach
+    try:
+        # Close front window of Safari
+        result = os.system("osascript -e 'tell application \"Safari\" to close front window' 2>/dev/null")
+        if result == 0:
+            print("[CLOSED]: Safari window")
+            return True
+    except:
+        pass
+    
+    try:
+        # Close front window of Chrome
+        result = os.system("osascript -e 'tell application \"Google Chrome\" to close front window' 2>/dev/null")
+        if result == 0:
+            print("[CLOSED]: Chrome window")
+            return True
+    except:
+        pass
+    
+    print("[ERROR]: Could not close browser tab or window")
+    return False
+
+def get_latest_news():
+    """Fetch latest news with summaries"""
+    try:
+        import requests
+        from bs4 import BeautifulSoup
+        
+        print("[NEWS]: Attempting to fetch news stories...")
+        
+        # Using BBC News RSS feed which includes descriptions
+        url = "https://feeds.bbci.co.uk/news/rss.xml"
+        response = requests.get(url, timeout=10)
+        soup = BeautifulSoup(response.content, features='xml')
+        
+        items = soup.findAll('item')
+        news_stories = []
+        
+        for i, item in enumerate(items[:5]):  # Get top 5 news stories
+            title = item.title.text if item.title else "No title"
+            description = item.description.text if item.description else "No description available"
+            
+            # Clean up the description (remove HTML tags if any)
+            from html import unescape
+            description = unescape(description)
+            description = BeautifulSoup(description, 'html.parser').get_text()
+            
+            news_story = {
+                'title': title,
+                'description': description
+            }
+            news_stories.append(news_story)
+            print(f"[NEWS FETCHED {i+1}]: {title}")
+            print(f"[DESCRIPTION]: {description[:100]}...")
+        
+        return news_stories
+    except ImportError:
+        print("[ERROR]: requests or beautifulsoup4 not installed")
+        print("[INFO]: Install with: pip install requests beautifulsoup4 lxml")
+        return None
+    except Exception as e:
+        print(f"[ERROR]: Could not fetch news - {str(e)}")
+        return None
+
 def processCommand(c):
+    global opened_apps, last_opened_url
     print("[PROCESSING COMMAND]: '" + c + "'")
     c = c.lower()
     
@@ -48,6 +148,67 @@ def processCommand(c):
         speak("Goodbye! Have a great day!")
         time.sleep(1)
         return "EXIT"
+    
+    # Close commands - NEW FEATURE
+    elif 'close' in c:
+        if 'youtube' in c or 'google' in c or 'tab' in c or 'window' in c or 'website' in c or 'page' in c:
+            # Close browser tab
+            speak("Closing browser tab")
+            close_last_browser_tab()
+        elif 'safari' in c:
+            close_application("Safari")
+            speak("Closing Safari")
+            if "Safari" in opened_apps:
+                opened_apps.remove("Safari")
+        elif 'chrome' in c:
+            close_application("Google Chrome")
+            speak("Closing Chrome")
+            if "Google Chrome" in opened_apps:
+                opened_apps.remove("Google Chrome")
+        elif 'notes' in c:
+            close_application("Notes")
+            speak("Closing Notes")
+            if "Notes" in opened_apps:
+                opened_apps.remove("Notes")
+        elif 'calculator' in c:
+            close_application("Calculator")
+            speak("Closing Calculator")
+            if "Calculator" in opened_apps:
+                opened_apps.remove("Calculator")
+        elif 'calendar' in c:
+            close_application("Calendar")
+            speak("Closing Calendar")
+            if "Calendar" in opened_apps:
+                opened_apps.remove("Calendar")
+        elif 'vscode' in c or 'visual studio' in c or 'vs code' in c:
+            close_application("Visual Studio Code")
+            speak("Closing VS Code")
+            if "Visual Studio Code" in opened_apps:
+                opened_apps.remove("Visual Studio Code")
+        elif 'finder' in c:
+            close_application("Finder")
+            speak("Closing Finder")
+            if "Finder" in opened_apps:
+                opened_apps.remove("Finder")
+        elif 'terminal' in c:
+            close_application("Terminal")
+            speak("Closing Terminal")
+            if "Terminal" in opened_apps:
+                opened_apps.remove("Terminal")
+        elif 'music' in c:
+            close_application("Music")
+            speak("Closing Music")
+            if "Music" in opened_apps:
+                opened_apps.remove("Music")
+        elif opened_apps:
+            # Close the last opened app
+            app_to_close = opened_apps[-1]
+            close_application(app_to_close)
+            speak(f"Closing {app_to_close}")
+            opened_apps.remove(app_to_close)
+        else:
+            speak("Please specify what to close")
+        return True
     
     # Stop music command
     elif 'stop music' in c or 'pause music' in c or 'stop playing' in c:
@@ -73,6 +234,7 @@ def processCommand(c):
                 print("[ATTEMPTING]: Apple Music playback")
                 applescript = 'tell application "Music" to activate'
                 os.system("osascript -e '{}'".format(applescript))
+                opened_apps.append("Music")
                 time.sleep(1)
                 
                 applescript = 'tell application "Music" to play (search playlist 1 for "{}")'.format(song)
@@ -84,6 +246,7 @@ def processCommand(c):
             
             time.sleep(1)
             webbrowser.open("https://music.youtube.com/search?q=" + song.replace(' ', '+'))
+            last_opened_url = "https://music.youtube.com/search?q=" + song.replace(' ', '+')
             print("[OPENED]: YouTube Music search for " + song)
             
         else:
@@ -126,34 +289,42 @@ def processCommand(c):
             os.system('open -a Notes')
             speak("Opening Notes")
             print("[OPENED]: Notes app")
+            opened_apps.append("Notes")
         elif 'calculator' in c:
             os.system('open -a Calculator')
             speak("Opening Calculator")
             print("[OPENED]: Calculator app")
+            opened_apps.append("Calculator")
         elif 'calendar' in c:
             os.system('open -a Calendar')
             speak("Opening Calendar")
             print("[OPENED]: Calendar app")
+            opened_apps.append("Calendar")
         elif 'safari' in c:
             os.system('open -a Safari')
             speak("Opening Safari")
             print("[OPENED]: Safari")
+            opened_apps.append("Safari")
         elif 'chrome' in c:
             os.system('open -a "Google Chrome"')
             speak("Opening Chrome")
             print("[OPENED]: Chrome")
+            opened_apps.append("Google Chrome")
         elif 'vscode' in c or 'visual studio' in c or 'vs code' in c:
             os.system('open -a "Visual Studio Code"')
             speak("Opening VS Code")
             print("[OPENED]: VS Code")
+            opened_apps.append("Visual Studio Code")
         elif 'finder' in c:
             os.system('open -a Finder')
             speak("Opening Finder")
             print("[OPENED]: Finder")
+            opened_apps.append("Finder")
         elif 'terminal' in c:
             os.system('open -a Terminal')
             speak("Opening Terminal")
             print("[OPENED]: Terminal")
+            opened_apps.append("Terminal")
         else:
             return False
         return True
@@ -298,6 +469,7 @@ def processCommand(c):
             time.sleep(0.5)
             wiki_query = query.replace(' ', '_')
             webbrowser.open("https://en.wikipedia.org/wiki/" + wiki_query)
+            last_opened_url = "https://en.wikipedia.org/wiki/" + wiki_query
             print("[OPENED]: Wikipedia - " + query)
         else:
             speak("What would you like to search on Wikipedia?")
@@ -309,6 +481,7 @@ def processCommand(c):
         speak("Opening YouTube")
         time.sleep(0.5)
         webbrowser.open("https://www.youtube.com")
+        last_opened_url = "https://www.youtube.com"
         print("[OPENED]: YouTube")
         return True
         
@@ -317,6 +490,7 @@ def processCommand(c):
         speak("Opening Google")
         time.sleep(0.5)
         webbrowser.open("https://www.google.com")
+        last_opened_url = "https://www.google.com"
         print("[OPENED]: Google")
         return True
         
@@ -325,6 +499,7 @@ def processCommand(c):
         speak("Opening Stack Overflow")
         time.sleep(0.5)
         webbrowser.open("https://stackoverflow.com")
+        last_opened_url = "https://stackoverflow.com"
         print("[OPENED]: Stack Overflow")
         return True
     
@@ -336,6 +511,7 @@ def processCommand(c):
             speak("Searching for " + query)
             time.sleep(0.5)
             webbrowser.open("https://www.google.com/search?q=" + query.replace(' ', '+'))
+            last_opened_url = "https://www.google.com/search?q=" + query.replace(' ', '+')
             print("[OPENED]: Google search for " + query)
         else:
             speak("What would you like me to search?")
@@ -355,13 +531,51 @@ def processCommand(c):
         speak("Today is " + current_date)
         return True
     
-    # News command
+    # News command - ENHANCED WITH FULL NEWS READING
     elif 'news' in c:
         print("[MATCH FOUND]: News")
-        speak("Opening latest news")
+        speak("Fetching latest news stories")
         time.sleep(0.5)
-        webbrowser.open("https://news.google.com")
-        print("[OPENED]: Google News")
+        
+        news_stories = get_latest_news()
+        
+        if news_stories and len(news_stories) > 0:
+            print(f"[NEWS]: Successfully fetched {len(news_stories)} news stories")
+            speak("Here are the top news stories")
+            time.sleep(1)
+            
+            # Read each news story with title and description
+            for i, story in enumerate(news_stories, 1):
+                title = story['title']
+                description = story['description']
+                
+                print(f"\n[NEWS STORY {i}]:")
+                print(f"Title: {title}")
+                print(f"Description: {description}")
+                print("-" * 60)
+                
+                # Speak the title
+                speak(f"News story {i}. {title}")
+                time.sleep(0.8)
+                
+                # Speak the description/summary
+                speak(description)
+                time.sleep(1.2)  # Longer pause between stories
+            
+            time.sleep(1)
+            speak("That's all the news. Opening Google News for more details")
+            time.sleep(0.5)
+            webbrowser.open("https://news.google.com")
+            last_opened_url = "https://news.google.com"
+            print("[OPENED]: Google News")
+        else:
+            print("[NEWS]: Could not fetch news stories, opening Google News directly")
+            speak("I couldn't fetch the news stories right now. Opening Google News for you")
+            time.sleep(0.5)
+            webbrowser.open("https://news.google.com")
+            last_opened_url = "https://news.google.com"
+            print("[OPENED]: Google News")
+        
         return True
     
     # Weather command
@@ -370,6 +584,7 @@ def processCommand(c):
         speak("Opening weather forecast")
         time.sleep(0.5)
         webbrowser.open("https://www.google.com/search?q=weather")
+        last_opened_url = "https://www.google.com/search?q=weather"
         print("[OPENED]: Weather")
         return True
     
@@ -379,6 +594,7 @@ def processCommand(c):
         speak("Opening Gmail")
         time.sleep(0.5)
         webbrowser.open("https://mail.google.com")
+        last_opened_url = "https://mail.google.com"
         print("[OPENED]: Gmail")
         return True
     
@@ -468,5 +684,3 @@ if __name__ == "__main__":
             
         except Exception as e:
             print("[UNEXPECTED ERROR]: " + str(e))
-    
-  
