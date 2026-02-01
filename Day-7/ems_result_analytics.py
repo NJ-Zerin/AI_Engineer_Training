@@ -46,7 +46,7 @@ grades = np.where(average_marks >= 80, "A+",
 print("Student Performance Summary")
 print("---------------------------")
 for i in range(len(students)):
-    print(f"{students[i]}: Total = {total_marks[i]}, Avg = {average_marks[i]:.1f}, Grade = {grades[i]}")
+    print(f"{students[i]}: Total = {total_marks[i]}, Avg = {average_marks[i]:.2f}, Grade = {grades[i]}")
 
 # -------------------------------------------------
 # Task 2: Subject-wise Performance
