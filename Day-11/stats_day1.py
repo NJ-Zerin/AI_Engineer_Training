@@ -1,5 +1,7 @@
 import math
 from collections import Counter
+import matplotlib.pyplot as plt
+
 
 # Dataset
 data = [12, 15, 14, 10, 18, 21, 13, 16, 19, 17]
@@ -24,7 +26,7 @@ def mode(dataset):
     max_freq = max(counts.values())
 
     if max_freq == 1:
-        return None  # No mode
+        return None  
     return [value for value, freq in counts.items() if freq == max_freq]
 
 def data_range(dataset):
@@ -97,4 +99,16 @@ print(f"Q3: {summary['Q3']}")
 print(f"Max: {summary['Max']}\n")
 
 print(f"Outliers: {outliers}")
+
+# ---------- Box Plot ----------
+fig = plt.figure(figsize=(6, 4))
+plt.boxplot(data, vert=True, patch_artist=True)
+
+plt.title("Box Plot of Dataset")
+plt.ylabel("Values")
+plt.grid(True)
+
+fig.savefig("box_plot.jpg", dpi=300, bbox_inches="tight")
+plt.show()
+
 
